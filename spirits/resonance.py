@@ -188,24 +188,31 @@ def log(role: str, content: str) -> None:
         role: 'user' | 'kain_user' | 'kain' | 'abel' | etc
         content: Message content
     """
+    _init_db()  # Ensure DB initialized
     conn = sqlite3.connect(DB_PATH, timeout=10.0)  # 10 second timeout
-    cur = conn.cursor()
-
-    # Write to legacy events table
-    cur.execute("INSERT INTO events VALUES (?, ?, ?)", (time.time(), role, content))
-
-    # Also write to resonance table with proper structure
-    daemon = _role_to_daemon(role)
-    event_type = "observation" if "_user" in role else "reflection"
-
-    log_resonance(
-        daemon=daemon,
-        event_type=event_type,
-        content=content
-    )
-
-    conn.commit()
-    conn.close()
+    
+    try:
+        cur = conn.cursor()
+        
+        # Write to legacy events table
+        cur.execute("INSERT INTO events VALUES (?, ?, ?)", (time.time(), role, content))
+        
+        # Also write to resonance table directly (don't call log_resonance to avoid double connection)
+        daemon = _role_to_daemon(role)
+        event_type = "observation" if "_user" in role else "reflection"
+        
+        metadata_json = None
+        cur.execute(
+            """
+            INSERT INTO resonance (ts, daemon, event_type, content, affective_charge, kernel_entropy, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (time.time(), daemon, event_type, content, None, None, metadata_json)
+        )
+        
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _role_to_daemon(role: str) -> str:
@@ -248,23 +255,25 @@ def log_resonance(
     """
     _init_db()  # Ensure DB and WAL mode initialized
     conn = sqlite3.connect(DB_PATH, timeout=10.0)  # 10 second timeout
-    cur = conn.cursor()
+    
+    try:
+        cur = conn.cursor()
 
-    metadata_json = json.dumps(metadata) if metadata else None
+        metadata_json = json.dumps(metadata) if metadata else None
 
-    cur.execute(
-        """
-        INSERT INTO resonance (ts, daemon, event_type, content, affective_charge, kernel_entropy, metadata)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        (time.time(), daemon, event_type, content, affective_charge, kernel_entropy, metadata_json)
-    )
+        cur.execute(
+            """
+            INSERT INTO resonance (ts, daemon, event_type, content, affective_charge, kernel_entropy, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (time.time(), daemon, event_type, content, affective_charge, kernel_entropy, metadata_json)
+        )
 
-    row_id = cur.lastrowid
-    conn.commit()
-    conn.close()
-
-    return row_id
+        row_id = cur.lastrowid
+        conn.commit()
+        return row_id
+    finally:
+        conn.close()
 
 
 def log_agent_memory(
@@ -285,24 +294,27 @@ def log_agent_memory(
     Returns:
         Row ID
     """
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+    
+    try:
+        cur = conn.cursor()
+        
+        context_json = json.dumps(context) if context else None
 
-    context_json = json.dumps(context) if context else None
+        cur.execute(
+            """
+            INSERT INTO agent_memory (daemon, memory_type, content, context, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (daemon, memory_type, content, context_json, time.time())
+        )
 
-    cur.execute(
-        """
-        INSERT INTO agent_memory (daemon, memory_type, content, context, created_at)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (daemon, memory_type, content, context_json, time.time())
-    )
-
-    row_id = cur.lastrowid
-    conn.commit()
-    conn.close()
-
-    return row_id
+        row_id = cur.lastrowid
+        conn.commit()
+        return row_id
+    finally:
+        conn.close()
 
 
 def log_kernel_adaptation(
@@ -327,22 +339,25 @@ def log_kernel_adaptation(
     Returns:
         Row ID
     """
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+    
+    try:
+        cur = conn.cursor()
 
-    cur.execute(
-        """
-        INSERT INTO kernel_adaptations (ts, param_name, old_value, new_value, trigger_daemon, reason, success)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        (time.time(), param_name, old_value, new_value, trigger_daemon, reason, 1 if success else 0)
-    )
+        cur.execute(
+            """
+            INSERT INTO kernel_adaptations (ts, param_name, old_value, new_value, trigger_daemon, reason, success)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (time.time(), param_name, old_value, new_value, trigger_daemon, reason, 1 if success else 0)
+        )
 
-    row_id = cur.lastrowid
-    conn.commit()
-    conn.close()
-
-    return row_id
+        row_id = cur.lastrowid
+        conn.commit()
+        return row_id
+    finally:
+        conn.close()
 
 
 def get_recent_resonance(
@@ -363,33 +378,36 @@ def get_recent_resonance(
     Returns:
         List of dicts with event data
     """
-    conn = sqlite3.connect(DB_PATH)
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+    
+    try:
+        cur = conn.cursor()
 
-    query = "SELECT * FROM resonance WHERE 1=1"
-    params = []
+        query = "SELECT * FROM resonance WHERE 1=1"
+        params = []
 
-    if daemon:
-        query += " AND daemon = ?"
-        params.append(daemon)
+        if daemon:
+            query += " AND daemon = ?"
+            params.append(daemon)
 
-    if event_type:
-        query += " AND event_type = ?"
-        params.append(event_type)
+        if event_type:
+            query += " AND event_type = ?"
+            params.append(event_type)
 
-    if min_affective_charge is not None:
-        query += " AND affective_charge >= ?"
-        params.append(min_affective_charge)
+        if min_affective_charge is not None:
+            query += " AND affective_charge >= ?"
+            params.append(min_affective_charge)
 
-    query += " ORDER BY ts DESC LIMIT ?"
-    params.append(limit)
+        query += " ORDER BY ts DESC LIMIT ?"
+        params.append(limit)
 
-    cur.execute(query, params)
-    rows = cur.fetchall()
-    conn.close()
-
-    return [dict(row) for row in rows]
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
 
 
 def get_agent_memories(
@@ -408,43 +426,50 @@ def get_agent_memories(
     Returns:
         List of memory dicts
     """
-    conn = sqlite3.connect(DB_PATH)
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+    
+    try:
+        cur = conn.cursor()
 
-    query = "SELECT * FROM agent_memory WHERE daemon = ?"
-    params = [daemon]
+        query = "SELECT * FROM agent_memory WHERE daemon = ?"
+        params = [daemon]
 
-    if memory_type:
-        query += " AND memory_type = ?"
-        params.append(memory_type)
+        if memory_type:
+            query += " AND memory_type = ?"
+            params.append(memory_type)
 
-    query += " ORDER BY last_access DESC, created_at DESC LIMIT ?"
-    params.append(limit)
+        query += " ORDER BY last_access DESC, created_at DESC LIMIT ?"
+        params.append(limit)
 
-    cur.execute(query, params)
-    rows = cur.fetchall()
-    conn.close()
-
-    return [dict(row) for row in rows]
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
 
 
 def increment_memory_access(memory_id: int) -> None:
     """Increment access count and update last_access timestamp for a memory."""
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+    
+    try:
+        cur = conn.cursor()
 
-    cur.execute(
-        """
-        UPDATE agent_memory
-        SET access_count = access_count + 1, last_access = ?
-        WHERE id = ?
-        """,
-        (time.time(), memory_id)
-    )
+        cur.execute(
+            """
+            UPDATE agent_memory
+            SET access_count = access_count + 1, last_access = ?
+            WHERE id = ?
+            """,
+            (time.time(), memory_id)
+        )
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_kernel_adaptations(limit: int = 50) -> List[Dict[str, Any]]:
@@ -457,18 +482,21 @@ def get_kernel_adaptations(limit: int = 50) -> List[Dict[str, Any]]:
     Returns:
         List of adaptation dicts
     """
-    conn = sqlite3.connect(DB_PATH)
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
+    
+    try:
+        cur = conn.cursor()
 
-    cur.execute(
-        "SELECT * FROM kernel_adaptations ORDER BY ts DESC LIMIT ?",
-        (limit,)
-    )
-    rows = cur.fetchall()
-    conn.close()
-
-    return [dict(row) for row in rows]
+        cur.execute(
+            "SELECT * FROM kernel_adaptations ORDER BY ts DESC LIMIT ?",
+            (limit,)
+        )
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
 
 
 def compute_field_dissonance(window_seconds: int = 60) -> float:
@@ -484,67 +512,78 @@ def compute_field_dissonance(window_seconds: int = 60) -> float:
     Returns:
         Dissonance score (0.0 to 1.0+)
     """
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+    
+    try:
+        cur = conn.cursor()
 
-    since = time.time() - window_seconds
+        since = time.time() - window_seconds
 
-    # Get affective charges in window
-    cur.execute(
-        """
-        SELECT affective_charge
-        FROM resonance
-        WHERE ts >= ? AND affective_charge IS NOT NULL
-        ORDER BY ts
-        """,
-        (since,)
-    )
-    charges = [row[0] for row in cur.fetchall()]
+        # Get affective charges in window
+        cur.execute(
+            """
+            SELECT affective_charge
+            FROM resonance
+            WHERE ts >= ? AND affective_charge IS NOT NULL
+            ORDER BY ts
+            """,
+            (since,)
+        )
+        charges = [row[0] for row in cur.fetchall()]
 
-    # Count kernel adaptations in window
-    cur.execute(
-        "SELECT COUNT(*) FROM kernel_adaptations WHERE ts >= ?",
-        (since,)
-    )
-    adaptation_count = cur.fetchone()[0]
+        # Count kernel adaptations in window
+        cur.execute(
+            "SELECT COUNT(*) FROM kernel_adaptations WHERE ts >= ?",
+            (since,)
+        )
+        adaptation_count = cur.fetchone()[0]
 
-    conn.close()
+        if len(charges) < 2:
+            return 0.0
 
-    if len(charges) < 2:
-        return 0.0
+        # Compute variance in affective charge (instability)
+        mean_charge = sum(charges) / len(charges)
+        variance = sum((c - mean_charge) ** 2 for c in charges) / len(charges)
 
-    # Compute variance in affective charge (instability)
-    mean_charge = sum(charges) / len(charges)
-    variance = sum((c - mean_charge) ** 2 for c in charges) / len(charges)
+        # Dissonance = variance + adaptation_rate
+        dissonance = variance + (adaptation_count / 10.0)
 
-    # Dissonance = variance + adaptation_rate
-    dissonance = variance + (adaptation_count / 10.0)
-
-    return min(dissonance, 1.0)
+        return min(dissonance, 1.0)
+    finally:
+        conn.close()
 
 
 # Legacy functions for backwards compatibility
 def last_user_command() -> str:
     """Get last user command (legacy)."""
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT content FROM events WHERE role='user' ORDER BY ts DESC LIMIT 1")
-    row = cur.fetchone()
-    conn.close()
-    return row[0] if row else ""
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+    
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT content FROM events WHERE role='user' ORDER BY ts DESC LIMIT 1")
+        row = cur.fetchone()
+        return row[0] if row else ""
+    finally:
+        conn.close()
 
 
 def last_real_command() -> str:
     """Get last real command (not daemon query)."""
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT content FROM events
-        WHERE role='user' AND content NOT LIKE '/%'
-        ORDER BY ts DESC LIMIT 1
-        """
-    )
-    row = cur.fetchone()
-    conn.close()
-    return row[0] if row else ""
+    _init_db()  # Ensure DB initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT content FROM events
+            WHERE role='user' AND content NOT LIKE '/%'
+            ORDER BY ts DESC LIMIT 1
+            """
+        )
+        row = cur.fetchone()
+        return row[0] if row else ""
+    finally:
+        conn.close()
