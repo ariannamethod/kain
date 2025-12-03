@@ -6,6 +6,7 @@ Utils package — Универсальные утилиты для ADAM kernel
 - agent_logic: Универсальная логика для всех агентов
 - context_neural_processor: Нейропроцессор контекста
 - vector_store: SQLite векторное хранилище для embeddings
+- whatdotheythinkiam: SUPPERTIME identity reflection (субъективная самоидентификация)
 """
 
 # Import specific functions/classes as they become available
@@ -16,5 +17,6 @@ __all__ = [
     'context_neural_processor',
     'vector_store',
     'logging',
+    'whatdotheythinkiam',
 ]
 
