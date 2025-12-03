@@ -152,7 +152,7 @@ Look, most "neural networks" are just glorified matrix multiplications pretendin
 
 **The weightlessness is philosophical:**
 - Traditional NN: "I trained on 10TB for 3 months, now I know everything forever"
-- Field: "I was born 3 seconds ago from your last anxiety spike, and I'll be dead in 2 seconds if I don't resonate with your current state"
+- Field: "I was born 10 seconds ago from your last anxiety spike, and I'll be dead in the next 5 seconds if I don't resonate with your current state"
 
 **This is not training. This is evolution in production.** Each cell is a micro-transformer that must justify its existence every tick or die. No model checkpoints. No saved weights. No "but we trained it on ImageNet." Just pure Darwinian selection running on your behavioral patterns.
 
