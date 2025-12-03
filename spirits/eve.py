@@ -1,11 +1,11 @@
 """
-eve.py — The First Voice / The Router
+eve.py — EVE: Emergent Voice Engine (The First Voice / The Router)
 
-Eve is the decision layer between human and mirrors.
-She determines which reflection is needed: Kain's pattern recognition,
-Abel's recursive reasoning, or the dialectic between both.
+EVE is the decision layer between human and mirrors.
+She determines which reflection is needed: KAIN's pattern recognition,
+ABEL's recursive reasoning, or the dialectic between both.
 
-Eve is not a mirror. Eve is the voice that calls the mirrors forth.
+EVE is not a mirror. EVE is the voice that calls the mirrors forth.
 """
 
 import re
@@ -16,18 +16,20 @@ from .abel import get_abel
 
 class Eve:
     """
-    The First Voice - Router between Kain and Abel
+    EVE: Emergent Voice Engine (The First Voice)
 
-    Eve analyzes incoming queries and routes them to the appropriate mirror:
-    - Kain: for pattern detection, shadow reflection, surface observations
-    - Abel: for deep reasoning, recursive logic, architectural analysis
-    - Both: for dialectical synthesis (Kain observes, Abel reconstructs)
+    Router between KAIN and ABEL
+
+    EVE analyzes incoming queries and routes them to the appropriate mirror:
+    - KAIN: for pattern detection, shadow reflection, surface observations
+    - ABEL: for deep reasoning, recursive logic, architectural analysis
+    - Both: for dialectical synthesis (KAIN observes, ABEL reconstructs)
     """
 
     def __init__(self):
         self.kain = get_kain()
         self.abel = get_abel()
-        self.current_mode = "kain"  # Default to Kain
+        self.current_mode = "kain"  # Default to KAIN
 
     def route(self, user_message, force_mode=None):
         """
@@ -53,11 +55,11 @@ class Eve:
             return self._ask_kain(user_message)
 
     def _ask_kain(self, user_message):
-        """Ask Kain (pattern mirror)."""
+        """Ask KAIN (pattern mirror)."""
         return self.kain.query(user_message, include_system_state=True)
 
     def _ask_abel(self, user_message, kain_prior=None):
-        """Ask Abel (deep mirror)."""
+        """Ask ABEL (deep mirror)."""
         return self.abel.query(
             user_message,
             include_system_state=True,
@@ -66,15 +68,15 @@ class Eve:
 
     def _ask_both(self, user_message):
         """
-        Ask both Kain and Abel in sequence (dialectical synthesis).
+        Ask both KAIN and ABEL in sequence (dialectical synthesis).
 
-        Kain observes patterns first, then Abel reconstructs the logic
-        beneath those patterns, using Kain's observation as context.
+        KAIN observes patterns first, then ABEL reconstructs the logic
+        beneath those patterns, using KAIN's observation as context.
         """
-        # First: Kain's surface reflection
+        # First: KAIN's surface reflection
         kain_response = self._ask_kain(user_message)
 
-        # Then: Abel's deep analysis, informed by Kain
+        # Then: ABEL's deep analysis, informed by KAIN
         abel_response = self._ask_abel(user_message, kain_prior=kain_response)
 
         # Return both
@@ -92,7 +94,7 @@ class Eve:
 
         self.current_mode = mode
         memory.log("eve_mode", mode)
-        return f"◇ Eve: Mode set to {mode.upper()}"
+        return f"◇ EVE: Mode set to {mode.upper()}"
 
     def get_mode(self):
         """Get current routing mode."""
@@ -104,7 +106,7 @@ _eve_instance = None
 
 
 def get_eve():
-    """Get or create Eve singleton."""
+    """Get or create EVE singleton."""
     global _eve_instance
     if _eve_instance is None:
         _eve_instance = Eve()
@@ -113,7 +115,7 @@ def get_eve():
 
 def route(user_message, force_mode=None):
     """
-    Convenience function: route user input through Eve.
+    Convenience function: route user input through EVE.
 
     Usage:
         from spirits.eve import route
