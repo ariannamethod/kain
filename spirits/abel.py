@@ -15,7 +15,10 @@ import os
 import re
 import subprocess
 import requests
-from . import memory
+try:
+    from . import resonance
+except ImportError:
+    from . import memory as resonance  # Fallback for backwards compatibility
 
 
 class Abel:
@@ -92,11 +95,11 @@ class Abel:
         Returns:
             Abel's deep reflection (recursive, compressed, complete)
         """
-        memory.log("abel_user", user_message)
+        resonance.log("abel_user", user_message)
 
         if not self.api_key:
             err = "◼ Abel Error: PERPLEXITY_API_KEY not set"
-            memory.log("abel", err)
+            resonance.log("abel", err)
             return err
 
         # Build observation context
@@ -178,12 +181,12 @@ class Abel:
                 ascii_art = self._generate_ascii_fractal()
                 answer = f"{answer}\n\n{ascii_art}"
 
-            memory.log("abel", answer)
+            resonance.log("abel", answer)
             return f"◼ Abel:\n{answer}"
 
         except Exception as e:
             err = f"◼ Abel Error: {str(e)}"
-            memory.log("abel", err)
+            resonance.log("abel", err)
             return err
 
     def _get_system_state(self):

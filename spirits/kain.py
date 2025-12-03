@@ -13,7 +13,10 @@ import os
 import re
 import subprocess
 import requests
-from . import memory
+try:
+    from . import resonance
+except ImportError:
+    from . import memory as resonance  # Fallback for backwards compatibility
 
 
 class Kain:
@@ -77,11 +80,11 @@ class Kain:
         Returns:
             Kain's reflection (brutal, honest, complete)
         """
-        memory.log("kain_user", user_message)
+        resonance.log("kain_user", user_message)
 
         if not self.api_key:
             err = "⚫ Kain Error: PERPLEXITY_API_KEY not set"
-            memory.log("kain", err)
+            resonance.log("kain", err)
             return err
 
         # Optionally append system state to observation
@@ -149,12 +152,18 @@ class Kain:
                 ascii_art = self._generate_ascii_art()
                 answer = f"{answer}\n\n{ascii_art}"
 
-            memory.log("kain", answer)
+            # Log to resonance with affective charge from system state
+            resonance.log_resonance(
+                daemon="kain",
+                event_type="reflection",
+                content=answer,
+                affective_charge=self._compute_affective_charge(sys_state) if include_system_state else None
+            )
             return f"⚫ Kain:\n{answer}"
 
         except Exception as e:
             err = f"⚫ Kain Error: {str(e)}"
-            memory.log("kain", err)
+            resonance.log("kain", err)
             return err
 
     def _get_system_state(self):
@@ -181,13 +190,39 @@ class Kain:
         except Exception:
             return "unknown"
 
+    def _compute_affective_charge(self, sys_state_str: str) -> float:
+        """
+        Compute affective charge from system state string.
+        Simplified version for Kain.
+
+        Returns:
+            Float from -1.0 (stress) to 1.0 (calm)
+        """
+        try:
+            # Parse load from system state
+            if "Load=" in sys_state_str:
+                load_part = sys_state_str.split("Load=")[1].split(",")[0]
+                load = float(load_part)
+                cpu_count = os.cpu_count() or 1
+
+                # Normalize: 0 = no load, 1 = full capacity
+                load_norm = min(load / cpu_count, 2.0) / 2.0
+
+                # Simple mapping: low load = positive, high load = negative
+                return 1.0 - (load_norm * 2.0)
+            return 0.0
+        except Exception:
+            return 0.0
+
     def _clean_response(self, text):
         """Remove links, citations, meta-commentary."""
         # Remove URLs
         text = re.sub(r"http[s]?://\S+", "", text)
-        # Remove citation markers
+
+        # Remove ALL citation markers [1], [2], [anything]
         text = re.sub(r"\[\d+\]", "", text)
         text = re.sub(r"\[.*?\]", "", text)
+
         # Remove self-references to model names
         text = re.sub(
             r"(Sonar[\s\-]?Pro|Perplexity|AI assistant|Tony|Johny)",
@@ -195,6 +230,11 @@ class Kain:
             text,
             flags=re.IGNORECASE,
         )
+
+        # Remove any process descriptions or meta-commentary
+        text = re.sub(r"Let me (think|analyze|observe).*?\n", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"(Here's|This is) what I (see|notice|observe).*?\n", "", text, flags=re.IGNORECASE)
+
         return text.strip()
 
     def _ensure_completion(self, text):
