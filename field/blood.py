@@ -30,11 +30,10 @@ except ImportError:
     # Python 3.7 совместимость - psutil опционален
     psutil = None
 
-# Пути к бинарникам компиляторов
+# Пути к бинарникам компиляторов (фиксированные пути в репозитории)
 FIELD_DIR = Path(__file__).parent
-NICOLE_ENV_DIR = FIELD_DIR / "nicole_env"
-NICOLE2C_DIR = FIELD_DIR / "nicole2c"
 BIN_DIR = FIELD_DIR / "bin"
+NICOLE2C_DIR = FIELD_DIR / "nicole2c"
 
 # Добавляем nicole2c в путь для Clang компонентов (если есть Python модули)
 if NICOLE2C_DIR.exists():
@@ -186,18 +185,18 @@ class BloodCCompiler:
         self.compiled_cache = {}
         
     def _find_compiler(self) -> Optional[str]:
-        """Находит доступный C компилятор (приоритет: nicole2c, gcc, clang)"""
-        # Проверяем бинарник из nicole_env
-        nicole_compiler = NICOLE_ENV_DIR / "compiler"
-        if nicole_compiler.exists() and os.access(nicole_compiler, os.X_OK):
-            return str(nicole_compiler)
+        """Находит доступный C компилятор (приоритет: бинарники в bin/, системные)"""
+        # Проверяем бинарники из bin/ (скопированы из проекта-прародителя)
+        bin_compiler = BIN_DIR / "compiler"
+        if bin_compiler.exists() and os.access(bin_compiler, os.X_OK):
+            return str(bin_compiler)
         
         # Проверяем nicole2c компилятор
         nicole2c_compiler = NICOLE2C_DIR / "nicole2c"
         if nicole2c_compiler.exists() and os.access(nicole2c_compiler, os.X_OK):
             return str(nicole2c_compiler)
         
-        # Проверяем системные компиляторы
+        # Проверяем системные компиляторы (fallback)
         for compiler in ['clang', 'gcc']:
             compiler_path = shutil.which(compiler)
             if compiler_path:

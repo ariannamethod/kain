@@ -17,17 +17,10 @@ from typing import Any, Dict, List, Optional, Union
 import threading
 import time
 
-# Пути к бинарникам
+# Путь к бинарнику H2O (если есть в репозитории)
 FIELD_DIR = Path(__file__).parent
 BIN_DIR = FIELD_DIR / "bin"
-NICOLE_ENV_DIR = FIELD_DIR / "nicole_env"
-
-# Проверяем наличие бинарника H2O (опционально)
-H2O_BINARY = BIN_DIR / "h2o"
-if not H2O_BINARY.exists():
-    H2O_BINARY = NICOLE_ENV_DIR / "h2o"
-if not H2O_BINARY.exists():
-    H2O_BINARY = None
+H2O_BINARY = BIN_DIR / "h2o" if (BIN_DIR / "h2o").exists() else None
 
 class H2ORuntime:
     """Минимальная среда исполнения для трансформеров Field4"""
