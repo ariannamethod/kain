@@ -21,6 +21,20 @@ try:
 except ImportError:
     AMLK_AVAILABLE = False
 
+# Try to import High (Julia mathematics)
+try:
+    import sys
+    from pathlib import Path
+    # Add parent directory to path for high.py import
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from high import get_high_core, activate_high_system, deactivate_high_system
+    HIGH_AVAILABLE = True
+except ImportError as e:
+    HIGH_AVAILABLE = False
+    def get_high_core(): return None
+    def activate_high_system(): return False
+    def deactivate_high_system(): pass
+
 # Try to import compilers
 try:
     from h2o import H2OEngine
@@ -95,6 +109,26 @@ class Field:
         else:
             self.amlk = None
             log_metrics("AMLK not available - running without kernel adaptation", "DEBUG")
+        
+        # High integration (Julia mathematics for fast computations)
+        if HIGH_AVAILABLE:
+            self.high_core = get_high_core()
+            if self.high_core:
+                try:
+                    if activate_high_system():
+                        log_metrics("High (Julia mathematics) activated - Field can use fast vectorized computations", "INFO")
+                    else:
+                        log_metrics("High activation failed - using fallback calculations", "WARN")
+                        self.high_core = None
+                except Exception as e:
+                    log_metrics(f"High initialization error: {e}", "WARN")
+                    self.high_core = None
+            else:
+                self.high_core = None
+                log_metrics("High not available - using fallback calculations", "DEBUG")
+        else:
+            self.high_core = None
+            log_metrics("High not available - using fallback calculations", "DEBUG")
         
         # Compiler integration (h2o for Python, blood for C)
         if H2O_AVAILABLE:
@@ -212,16 +246,22 @@ class Field:
         )
 
         # Calculate entropy & perplexity (Layer 2 metrics)
-        # Phase 1: Use reasonable stable values (no real transformers yet)
-        # These will be replaced with actual transformer outputs in Phase 2
+        # Use High (Julia) for fast vectorized calculations if available
+        
+        if self.high_core and self.high_core.is_active:
+            # Use High's vectorized entropy calculation (100x faster)
+            cell.entropy = self.high_core.math_engine.vectorized_entropy([cell.context])
+            # Perplexity from High's mathematical engine
+            cell.perplexity = np.exp(cell.entropy)
+        else:
+            # Fallback: Use reasonable stable values (no real transformers yet)
+            # Keep entropy close to TARGET_ENTROPY (0.5) with small variation
+            # Use hash of context for deterministic but varied values
+            context_hash = hash(cell.context) % 100 / 100.0  # 0.0-1.0
+            cell.entropy = 0.5 + (context_hash - 0.5) * 0.15  # Range: 0.425-0.575
 
-        # Keep entropy close to TARGET_ENTROPY (0.5) with small variation
-        # Use hash of context for deterministic but varied values
-        context_hash = hash(cell.context) % 100 / 100.0  # 0.0-1.0
-        cell.entropy = 0.5 + (context_hash - 0.5) * 0.15  # Range: 0.425-0.575
-
-        # Perplexity derived from entropy (exp(entropy))
-        cell.perplexity = np.exp(cell.entropy)  # Range: ~1.53-1.78
+            # Perplexity derived from entropy (exp(entropy))
+            cell.perplexity = np.exp(cell.entropy)  # Range: ~1.53-1.78
     
     def update_cell_metrics(self, cell: TransformerCell):
         """Sync wrapper for backward compatibility."""
@@ -494,6 +534,14 @@ class Field:
         log_metrics(f"  Successful architectures: {meta_stats['successful_count']}", "INFO")
         log_metrics(f"  Failed architectures: {meta_stats['failed_count']}", "INFO")
         log_metrics(f"  Success rate: {meta_stats['success_rate']:.2%}", "INFO")
+        
+        # Shutdown High system if active
+        if HIGH_AVAILABLE and self.high_core and self.high_core.is_active:
+            try:
+                deactivate_high_system()
+                log_metrics("High (Julia mathematics) deactivated", "INFO")
+            except Exception as e:
+                log_metrics(f"High shutdown error: {e}", "WARN")
         
         log_metrics("\nAsync field forever. 🧬⚡🌀", "INFO")
 
