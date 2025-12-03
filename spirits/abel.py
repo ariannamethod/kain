@@ -192,6 +192,16 @@ class Abel:
             # Clean output
             answer = self._clean_response(answer)
 
+            # SELF-CORRECTION: Check if reasoning threads leaked despite cleanup
+            # If detected → retry with CRITICAL meta-prompt
+            if self._has_reasoning_leak(answer):
+                resonance.log_resonance(
+                    daemon="abel",
+                    event_type="reasoning_leak_detected",
+                    content=f"Reasoning leak detected. Retrying. Original: {answer[:200]}..."
+                )
+                answer = self._self_correct(answer, headers, user_message)
+
             # Ensure proper ending
             answer = self._ensure_completion(answer)
 
@@ -324,6 +334,139 @@ print('\\n'.join(sierpinski(2)))
         except Exception:
             # Fallback: simple recursive pattern
             return "◼\n◼ ◼\n◼ ◼ ◼"
+
+    def _has_reasoning_leak(self, text):
+        """
+        Detect if response still contains reasoning threads despite cleanup.
+
+        Sonar Reasoning Pro leak indicators:
+        - "First,", "Then,", "Finally,"
+        - "Let me", "I'll", "To"
+        - Numbered steps (1., 2., 3.)
+        - "Analysis:", "Breaking down", "Examining"
+        - Very short response (likely just reasoning, no answer)
+        - Ends abruptly with "." after meta-commentary
+        """
+        text_lower = text.lower()
+
+        # Explicit reasoning markers
+        reasoning_markers = [
+            "first,",
+            "then,",
+            "finally,",
+            "let me",
+            "i'll",
+            "to understand",
+            "to analyze",
+            "breaking down",
+            "examining",
+            "considering",
+        ]
+
+        # Count reasoning markers
+        marker_count = sum(1 for marker in reasoning_markers if marker in text_lower)
+        if marker_count >= 2:
+            return True
+
+        # Check for numbered steps (1. 2. 3.)
+        import re
+        if re.search(r"^\d+\.", text, re.MULTILINE):
+            return True
+
+        # Check if response is suspiciously short (< 50 chars)
+        # Likely means cleanup removed answer, only meta-commentary left
+        if len(text.strip()) < 50:
+            return True
+
+        # Check if response ends with just "." after process description
+        # Pattern: "...analyzing... ."
+        if re.search(r"(analyz|examin|consider|observ)ing[.!?]\s*$", text_lower):
+            return True
+
+        # Check for "Here's" / "This is" patterns
+        if any(phrase in text_lower for phrase in ["here's what", "this is what", "here's my", "this is my"]):
+            return True
+
+        return False
+
+    def _self_correct(self, failed_response, headers, original_message):
+        """
+        Recursive self-correction: Request ABEL to respond with pure insight.
+
+        Args:
+            failed_response: Response with reasoning leak
+            headers: API headers
+            original_message: Original user message
+
+        Returns:
+            Corrected response from ABEL
+        """
+        # CRITICAL meta-prompt: Demand final insight only
+        meta_prompt = (
+            f"🔴 CRITICAL ERROR:\n"
+            f"Your previous response contained reasoning threads, not final insight.\n\n"
+            f"PREVIOUS RESPONSE (WRONG):\n{failed_response}\n\n"
+            f"---\n\n"
+            f"Original query: {original_message}\n\n"
+            f"🔴 REQUIREMENTS:\n"
+            f"- NO 'First', 'Then', 'Finally'\n"
+            f"- NO 'Let me', 'I'll analyze'\n"
+            f"- NO numbered steps\n"
+            f"- NO process description\n\n"
+            f"Give ONLY your final compressed insight.\n"
+            f"Truth, not process. Revelation, not reasoning.\n"
+            f"Start directly with the insight itself."
+        )
+
+        correction_payload = {
+            "model": "sonar-reasoning",
+            "messages": [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": meta_prompt},
+            ],
+            "temperature": 0.9,  # Higher temp to break out of reasoning pattern
+            "max_tokens": 800,
+            "return_reasoning": False,  # Hide reasoning again
+        }
+
+        try:
+            response = requests.post(self.base_url, headers=headers, json=correction_payload, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            corrected = result["choices"][0]["message"]["content"]
+
+            # Clean the corrected response
+            corrected = self._clean_response(corrected)
+
+            # If STILL has reasoning leak, take last paragraph only (desperate measure)
+            if self._has_reasoning_leak(corrected):
+                resonance.log_resonance(
+                    daemon="abel",
+                    event_type="correction_partial",
+                    content="Reasoning still leaked. Taking last paragraph only."
+                )
+                paragraphs = [p.strip() for p in corrected.split('\n\n') if p.strip()]
+                if paragraphs:
+                    corrected = paragraphs[-1]
+                else:
+                    # Give up, return cleaned original
+                    return self._clean_response(failed_response)
+
+            resonance.log_resonance(
+                daemon="abel",
+                event_type="correction_success",
+                content=f"Self-correction successful. New response: {corrected[:200]}..."
+            )
+            return corrected
+
+        except Exception as e:
+            # If correction fails, return cleaned original
+            resonance.log_resonance(
+                daemon="abel",
+                event_type="correction_error",
+                content=f"Correction error: {str(e)}"
+            )
+            return self._clean_response(failed_response)
 
 
 # Module-level singleton
