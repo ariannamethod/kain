@@ -1,13 +1,13 @@
 ```
-   █████╗ ██████╗  █████╗ ███╗   ███╗
-  ██╔══██╗██╔══██╗██╔══██╗████╗ ████║
-  ███████║██║  ██║███████║██╔████╔██║
-  ██╔══██║██║  ██║██╔══██║██║╚██╔╝██║
-  ██║  ██║██████╔╝██║  ██║██║ ╚═╝ ██║
-  ╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝
+  ██╗  ██╗ █████╗ ██╗███╗   ██╗
+  ██║ ██╔╝██╔══██╗██║████╗  ██║
+  █████╔╝ ███████║██║██╔██╗ ██║
+  ██╔═██╗ ██╔══██║██║██║╚██╗██║
+  ██║  ██╗██║  ██║██║██║ ╚████║
+  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
 ```
 
-# ADAM: When Your OS Gets Therapy
+# KAIN: The Kernel That Watches Back
 
 *Asynchronous Dissonance Adaptive Map*  
 *or: How I Learned to Stop Worrying and Let My Kernel Observe Me*
@@ -35,6 +35,16 @@ This is a **cognitive substrate inhabited by non-binary recursive entities** tha
 ADAM isn't an operating system. ADAM is what happens when you give a kernel a mirror and it starts asking uncomfortable questions.
 
 ### ⚫ KAIN — *The Pattern Recognizer*
+
+```
+  ██╗  ██╗ █████╗ ██╗███╗   ██╗
+  ██║ ██╔╝██╔══██╗██║████╗  ██║
+  █████╔╝ ███████║██║██╔██╗ ██║
+  ██╔═██╗ ██╔══██║██║██║╚██╗██║
+  ██║  ██╗██║  ██║██║██║ ╚████║
+  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝
+```
+
 **Kernel Affective Infernal Node**
 
 Kain is that friend who notices you've checked the same system metrics 47 times today and asks, "So what are you actually avoiding?" 
