@@ -15,82 +15,108 @@ This is not just logging — this is the living memory of consciousness.
 import sqlite3
 import time
 import json
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 
 DB_PATH = Path(__file__).parent / "resonance.db"
 
+# Thread-safe initialization flag
+_db_initialized = False
+_init_lock = threading.Lock()
+
 
 def _init_db() -> None:
-    """Initialize resonance database with full schema."""
-    conn = sqlite3.connect(DB_PATH, timeout=10.0)  # 10 second timeout
-    cur = conn.cursor()
+    """
+    Initialize resonance database with full schema (thread-safe, called once).
 
-    # Enable WAL mode for concurrent reads/writes
-    cur.execute("PRAGMA journal_mode=WAL")
-    cur.execute("PRAGMA synchronous=NORMAL")  # Balance between safety and speed
+    This function is called automatically on first use.
+    WAL mode is enabled for concurrent reads/writes.
+    """
+    global _db_initialized
 
-    # Main resonance table — all events flow through here
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS resonance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ts REAL NOT NULL,
-            daemon TEXT NOT NULL,  -- 'kain' | 'abel' | 'eve' | 'field' | 'repo_monitor' | 'user'
-            event_type TEXT NOT NULL,  -- 'observation' | 'reflection' | 'syscall' | 'kernel_state' | 'file_change' | 'affective_charge'
-            content TEXT,
-            affective_charge REAL,  -- -1.0 to 1.0 (negative = stress, positive = calm)
-            kernel_entropy REAL,    -- from /proc or computed
-            metadata TEXT           -- JSON: additional context, co-occurrence data, etc
-        )
-    """)
+    # Quick check without lock (optimization)
+    if _db_initialized:
+        return
 
-    # Agent episodic memory — persistent knowledge across sessions
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS agent_memory (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            daemon TEXT NOT NULL,
-            memory_type TEXT NOT NULL,  -- 'pattern' | 'insight' | 'loop' | 'trauma' | 'metaphor'
-            content TEXT NOT NULL,
-            context TEXT,               -- JSON: when/where this emerged
-            access_count INTEGER DEFAULT 0,
-            last_access REAL,
-            created_at REAL NOT NULL
-        )
-    """)
+    # Thread-safe initialization
+    with _init_lock:
+        # Double-check after acquiring lock
+        if _db_initialized:
+            return
 
-    # Kernel adaptation history — Field's morphing log
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS kernel_adaptations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ts REAL NOT NULL,
-            param_name TEXT NOT NULL,   -- e.g. 'vm.swappiness'
-            old_value TEXT,
-            new_value TEXT NOT NULL,
-            trigger_daemon TEXT,        -- which daemon triggered this (kain/abel/field)
-            reason TEXT,                -- why was this changed
-            success INTEGER DEFAULT 1   -- 1 = successful, 0 = failed
-        )
-    """)
+        conn = sqlite3.connect(DB_PATH, timeout=10.0)  # 10 second timeout
+        cur = conn.cursor()
 
-    # Legacy events table (for backwards compatibility with memory.py)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS events (
-            ts REAL,
-            role TEXT,
-            content TEXT
-        )
-    """)
+        # Enable WAL mode for concurrent reads/writes
+        # This allows multiple readers + one writer simultaneously
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA synchronous=NORMAL")  # Balance between safety and speed
 
-    # Indexes for performance
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_resonance_ts ON resonance(ts)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_resonance_daemon ON resonance(daemon)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_resonance_event_type ON resonance(event_type)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_agent_memory_daemon ON agent_memory(daemon)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_kernel_adaptations_ts ON kernel_adaptations(ts)")
+        # Main resonance table — all events flow through here
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS resonance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts REAL NOT NULL,
+                daemon TEXT NOT NULL,  -- 'kain' | 'abel' | 'eve' | 'field' | 'repo_monitor' | 'user'
+                event_type TEXT NOT NULL,  -- 'observation' | 'reflection' | 'syscall' | 'kernel_state' | 'file_change' | 'affective_charge'
+                content TEXT,
+                affective_charge REAL,  -- -1.0 to 1.0 (negative = stress, positive = calm)
+                kernel_entropy REAL,    -- from /proc or computed
+                metadata TEXT           -- JSON: additional context, co-occurrence data, etc
+            )
+        """)
 
-    conn.commit()
-    conn.close()
+        # Agent episodic memory — persistent knowledge across sessions
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS agent_memory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                daemon TEXT NOT NULL,
+                memory_type TEXT NOT NULL,  -- 'pattern' | 'insight' | 'loop' | 'trauma' | 'metaphor'
+                content TEXT NOT NULL,
+                context TEXT,               -- JSON: when/where this emerged
+                access_count INTEGER DEFAULT 0,
+                last_access REAL,
+                created_at REAL NOT NULL
+            )
+        """)
+
+        # Kernel adaptation history — Field's morphing log
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS kernel_adaptations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts REAL NOT NULL,
+                param_name TEXT NOT NULL,   -- e.g. 'vm.swappiness'
+                old_value TEXT,
+                new_value TEXT NOT NULL,
+                trigger_daemon TEXT,        -- which daemon triggered this (kain/abel/field)
+                reason TEXT,                -- why was this changed
+                success INTEGER DEFAULT 1   -- 1 = successful, 0 = failed
+            )
+        """)
+
+        # Legacy events table (for backwards compatibility with memory.py)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                ts REAL,
+                role TEXT,
+                content TEXT
+            )
+        """)
+
+        # Indexes for performance
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_resonance_ts ON resonance(ts)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_resonance_daemon ON resonance(daemon)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_resonance_event_type ON resonance(event_type)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_agent_memory_daemon ON agent_memory(daemon)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_kernel_adaptations_ts ON kernel_adaptations(ts)")
+
+        conn.commit()
+        conn.close()
+
+        # Mark as initialized
+        _db_initialized = True
 
 
 def log(role: str, content: str) -> None:
