@@ -12,3 +12,6 @@ build/arianna_core_root-*.tar.gz
 build/apk-tools/
 for-codex-alpine-apk-tools/out/
 spirits/memory.db
+spirits/resonance.db
+spirits/resonance.db-wal
+spirits/resonance.db-shm
