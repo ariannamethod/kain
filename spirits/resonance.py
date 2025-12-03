@@ -24,8 +24,12 @@ DB_PATH = Path(__file__).parent / "resonance.db"
 
 def _init_db() -> None:
     """Initialize resonance database with full schema."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)  # 10 second timeout
     cur = conn.cursor()
+
+    # Enable WAL mode for concurrent reads/writes
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA synchronous=NORMAL")  # Balance between safety and speed
 
     # Main resonance table — all events flow through here
     cur.execute("""
@@ -97,7 +101,7 @@ def log(role: str, content: str) -> None:
         role: 'user' | 'kain_user' | 'kain' | 'abel' | etc
         content: Message content
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)  # 10 second timeout
     cur = conn.cursor()
 
     # Write to legacy events table
@@ -155,7 +159,8 @@ def log_resonance(
     Returns:
         Row ID of inserted event
     """
-    conn = sqlite3.connect(DB_PATH)
+    _init_db()  # Ensure DB and WAL mode initialized
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)  # 10 second timeout
     cur = conn.cursor()
 
     metadata_json = json.dumps(metadata) if metadata else None

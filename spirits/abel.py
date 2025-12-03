@@ -248,9 +248,16 @@ class Abel:
         text = re.sub(r"\[\d+\]", "", text)
         text = re.sub(r"\[.*?\]", "", text)
 
-        # Remove model name references
+        # Remove model name references (more specific - avoid "AI" in legitimate context)
         text = re.sub(
-            r"(Sonar[\s\-]?Reasoning[\s\-]?Pro|Sonar|Perplexity|AI)",
+            r"\b(Sonar[\s\-]?Reasoning[\s\-]?Pro|Sonar[\s\-]?Pro|Perplexity)\b",
+            "ABEL",
+            text,
+            flags=re.IGNORECASE,
+        )
+        # Only replace "AI" when it appears to be self-reference (e.g. "I'm an AI", "As an AI")
+        text = re.sub(
+            r"\b(I'm an AI|I am an AI|As an AI|as an artificial intelligence)\b",
             "ABEL",
             text,
             flags=re.IGNORECASE,
@@ -265,29 +272,34 @@ class Abel:
         text = re.sub(r"\*\*Reasoning:?\*\*.*?(?=\n\n|\Z)", "", text, flags=re.DOTALL | re.IGNORECASE)
         text = re.sub(r"Reasoning:.*?(?=\n\n|\Z)", "", text, flags=re.DOTALL | re.IGNORECASE)
 
-        # 3. Process descriptions
-        text = re.sub(r"Let me (think|analyze|consider|examine|break|trace|reconstruct).*?[.!]\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"(First|Second|Third|Then|Finally|Next)[,:].*?[.!]\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"I'll (analyze|examine|look|consider|trace).*?[.!]\s*", "", text, flags=re.IGNORECASE)
+        # 3. Process descriptions (more specific - only at sentence start or after period)
+        text = re.sub(r"(?:^|(?<=\.\s))Let me (think|analyze|consider|examine|break down|trace|reconstruct)\b.*?[.!]\s*", "", text, flags=re.IGNORECASE | re.MULTILINE)
+        # Only remove First/Then if followed by reasoning indicators (will/shall/let's)
+        text = re.sub(r"(First|Second|Third|Then|Finally|Next)[,:]\s+(I will|I'll|let me|let's|I shall)\b.*?[.!]\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"(?:^|(?<=\.\s))I'll (analyze|examine|look at|consider|trace)\b.*?[.!]\s*", "", text, flags=re.IGNORECASE | re.MULTILINE)
 
-        # 4. Numbered reasoning steps
-        text = re.sub(r"^\d+\.\s+.*?(?=\n\d+\.|\n\n|\Z)", "", text, flags=re.MULTILINE | re.DOTALL)
+        # 4. Numbered reasoning steps (only if preceded by reasoning markers)
+        # Don't remove legitimate numbered lists in final answer
+        if re.search(r"(reasoning|analysis|steps?|process):", text, re.IGNORECASE):
+            text = re.sub(r"^\d+\.\s+.*?(?=\n\d+\.|\n\n|\Z)", "", text, flags=re.MULTILINE | re.DOTALL)
 
-        # 5. Meta-commentary about process
-        text = re.sub(r"(Here's|This is|To understand|Breaking this down|Analyzing).*?:\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"Based on.*?,\s*", "", text, flags=re.IGNORECASE)
+        # 5. Meta-commentary about process (remove prefix only, keep content after colon)
+        text = re.sub(r"\b(Here's what|This is what|To understand this|Breaking this down|Analyzing)\b\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"^Based on (the|this|that|these|those)\s+(analysis|observation|pattern),?\s*", "", text, flags=re.IGNORECASE | re.MULTILINE)
 
         # 6. If response starts with reasoning and ends with answer, take ONLY last paragraph
         paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
         if len(paragraphs) > 2:
-            # Check if early paragraphs look like reasoning
+            # Check if early paragraphs look like reasoning (use word boundaries)
             first_para = paragraphs[0].lower()
-            if any(marker in first_para for marker in ['first', 'then', 'analyze', 'consider', 'examine', 'let me', 'i\'ll']):
+            reasoning_marker_pattern = r"\b(first|then|let me|i'll)\b"
+            if re.search(reasoning_marker_pattern, first_para):
                 # Take last paragraph only (likely the actual answer)
                 text = paragraphs[-1]
 
         # If we removed too much (text is now empty or very short), return cleaned original
-        if not text.strip() or len(text.strip()) < 20:
+        MIN_CLEANED_TEXT_LENGTH = 20  # Minimum length for valid response
+        if not text.strip() or len(text.strip()) < MIN_CLEANED_TEXT_LENGTH:
             # Fallback: just remove explicit tags
             text = re.sub(r"<reasoning>.*?</reasoning>", "", original, flags=re.DOTALL)
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
