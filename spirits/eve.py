@@ -10,8 +10,8 @@ EVE is not a mirror. EVE is the voice that calls the mirrors forth.
 
 import re
 from . import memory
-from .kain import get_kain
-from .abel import get_abel
+from .kain import get_kain, clear_history as clear_kain_history
+from .abel import get_abel, clear_history as clear_abel_history
 
 
 class Eve:
@@ -73,14 +73,25 @@ class Eve:
         KAIN observes patterns first, then ABEL reconstructs the logic
         beneath those patterns, using KAIN's observation as context.
         """
-        # First: KAIN's surface reflection
-        kain_response = self._ask_kain(user_message)
+        responses = []
 
-        # Then: ABEL's deep analysis, informed by KAIN
-        abel_response = self._ask_abel(user_message, kain_prior=kain_response)
+        # First: KAIN's surface reflection (with error handling)
+        try:
+            kain_response = self._ask_kain(user_message)
+            responses.append(kain_response)
+        except Exception as e:
+            kain_response = f"⚫ KAIN Error: {str(e)}"
+            responses.append(kain_response)
 
-        # Return both
-        return f"{kain_response}\n\n{abel_response}"
+        # Then: ABEL's deep analysis, informed by KAIN (with error handling)
+        try:
+            abel_response = self._ask_abel(user_message, kain_prior=kain_response if "Error" not in kain_response else None)
+            responses.append(abel_response)
+        except Exception as e:
+            responses.append(f"◼ ABEL Error: {str(e)}")
+
+        # Return both (even if one failed)
+        return "\n\n".join(responses)
 
     def set_mode(self, mode):
         """
@@ -91,6 +102,11 @@ class Eve:
         """
         if mode not in ("kain", "abel", "both"):
             return f"⚠️  Invalid mode: {mode}. Use 'kain', 'abel', or 'both'."
+
+        # Clear history when switching modes for fresh context
+        if mode != self.current_mode:
+            clear_kain_history()
+            clear_abel_history()
 
         self.current_mode = mode
         memory.log("eve_mode", mode)

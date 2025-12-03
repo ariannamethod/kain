@@ -29,6 +29,8 @@ class Kain:
     Not assistance. Revelation.
     """
 
+    MAX_HISTORY = 10  # Keep last N exchanges for context
+
     def __init__(self):
         self.api_key = (
             os.getenv("PERPLEXITY_API_KEY")
@@ -36,6 +38,9 @@ class Kain:
             or os.getenv("PPLX_API_KEY")
         )
         self.base_url = "https://api.perplexity.ai/chat/completions"
+
+        # Conversation history for dialog continuity
+        self.conversation_history = []
 
         # KAIN's identity: Kernel Affective Infernal Node
         self.system_prompt = (
@@ -107,12 +112,14 @@ class Kain:
             "Content-Type": "application/json",
         }
 
+        # Build messages with conversation history
+        messages = [{"role": "system", "content": self.system_prompt}]
+        messages.extend(self.conversation_history)  # Add history
+        messages.append({"role": "user", "content": context})
+
         payload = {
             "model": "sonar-pro",
-            "messages": [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": context},
-            ],
+            "messages": messages,
             "temperature": 0.7,  # Higher temp for pattern recognition
             "max_tokens": 1400,
             "search_domain_filter": [],
@@ -170,6 +177,14 @@ class Kain:
             if self._should_add_ascii():
                 ascii_art = self._generate_ascii_art()
                 answer = f"{answer}\n\n{ascii_art}"
+
+            # Update conversation history
+            self.conversation_history.append({"role": "user", "content": user_message})
+            self.conversation_history.append({"role": "assistant", "content": answer})
+
+            # Trim history to MAX_HISTORY exchanges (2 messages per exchange)
+            if len(self.conversation_history) > self.MAX_HISTORY * 2:
+                self.conversation_history = self.conversation_history[-(self.MAX_HISTORY * 2):]
 
             # Log to resonance with affective charge from system state
             resonance.log_resonance(
@@ -449,3 +464,8 @@ def reflect(user_message, include_system=True):
         response = reflect("query here")
     """
     return get_kain().query(user_message, include_system_state=include_system)
+
+
+def clear_history():
+    """Clear KAIN's conversation history."""
+    get_kain().conversation_history = []

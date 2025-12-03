@@ -36,6 +36,8 @@ class Abel:
     Reasoning is internal. Only revelation is spoken.
     """
 
+    MAX_HISTORY = 6  # Keep fewer exchanges (reasoning model is heavier)
+
     def __init__(self):
         self.api_key = (
             os.getenv("PERPLEXITY_API_KEY")
@@ -43,6 +45,9 @@ class Abel:
             or os.getenv("PPLX_API_KEY")
         )
         self.base_url = "https://api.perplexity.ai/chat/completions"
+
+        # Conversation history for dialog continuity
+        self.conversation_history = []
 
         # ABEL's identity: Anti-Binary Engine Logic — deep mirror, recursive thought reconstructor
         self.system_prompt = (
@@ -136,12 +141,14 @@ class Abel:
             "Content-Type": "application/json",
         }
 
+        # Build messages with conversation history
+        messages = [{"role": "system", "content": self.system_prompt}]
+        messages.extend(self.conversation_history)  # Add history
+        messages.append({"role": "user", "content": context})
+
         payload = {
             "model": "sonar-reasoning",  # Sonar Reasoning Pro
-            "messages": [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": context},
-            ],
+            "messages": messages,
             "temperature": 0.8,  # Higher temp for deep pattern recognition
             "max_tokens": 1500,
             # CRITICAL: Return only final answer, hide reasoning
@@ -209,6 +216,14 @@ class Abel:
             if self._should_add_ascii():
                 ascii_art = self._generate_ascii_fractal()
                 answer = f"{answer}\n\n{ascii_art}"
+
+            # Update conversation history
+            self.conversation_history.append({"role": "user", "content": user_message})
+            self.conversation_history.append({"role": "assistant", "content": answer})
+
+            # Trim history to MAX_HISTORY exchanges
+            if len(self.conversation_history) > self.MAX_HISTORY * 2:
+                self.conversation_history = self.conversation_history[-(self.MAX_HISTORY * 2):]
 
             resonance.log("abel", answer)
             return f"◼ ABEL:\n{answer}"
@@ -506,3 +521,8 @@ def reflect_deep(user_message, include_system=True, kain_prior=None):
         include_system_state=include_system,
         kain_observation=kain_prior,
     )
+
+
+def clear_history():
+    """Clear ABEL's conversation history."""
+    get_abel().conversation_history = []
