@@ -31,7 +31,7 @@ try:
     import black
 except Exception:  # pragma: no cover - fallback when black is absent
     black = None
-from spirits.johny import SonarProDive
+from spirits.eve import get_eve
 from spirits import memory
 
 _NO_COLOR_FLAG = "--no-color"
@@ -129,8 +129,8 @@ ERROR_LOG_PATH = LOG_DIR / "errors.log"
 
 Handler = Callable[[str], Awaitable[Tuple[str, str | None]]]
 
-JOHNY = SonarProDive()
-COMPANION_ACTIVE: str | None = None
+EVE = get_eve()
+COMPANION_ACTIVE: str | None = "kain"  # Kain is always on by default
 
 
 def _ensure_log_dir() -> None:
@@ -393,29 +393,52 @@ def search_history(pattern: str) -> str:
     return "\n".join(matches) if matches else "no matches"
 
 
-async def handle_xplaine(_: str) -> Tuple[str, str | None]:
+async def handle_silence(_: str) -> Tuple[str, str | None]:
+    """Silence Kain temporarily (until next command)."""
     global COMPANION_ACTIVE
-    COMPANION_ACTIVE = "johny"
-    last = memory.last_real_command()
-    is_russian = bool(re.search(r"[А-Яа-яЁё]", last))
-    if last:
-        if is_russian:
-            prompt = f"Пользователь пытался выполнить '{last}' и столкнулся с проблемами. Объясни."  # noqa: E501
-        else:
-            prompt = f"The user tried to '{last}' and had problems. Explain."
-        reply = await asyncio.to_thread(JOHNY.query, prompt)
-    else:
-        if is_russian:
-            reply = "эй, я Джонни! проблемы? нужна помощь?"
-        else:
-            reply = "Hey there! I'm Johny. Need help?"
+    COMPANION_ACTIVE = None
+    reply = "⚫ Kain: Silenced."
     return reply, reply
 
 
-async def handle_xplaineoff(_: str) -> Tuple[str, str | None]:
+async def handle_speak(_: str) -> Tuple[str, str | None]:
+    """Restore Kain's voice."""
     global COMPANION_ACTIVE
-    COMPANION_ACTIVE = None
-    reply = "Companion off."
+    COMPANION_ACTIVE = "kain"
+    EVE.set_mode("kain")
+    reply = "⚫ Kain: I see you again."
+    return reply, reply
+
+
+async def handle_abel(_: str) -> Tuple[str, str | None]:
+    """Summon Abel (Deep Mirror)."""
+    global COMPANION_ACTIVE
+    COMPANION_ACTIVE = "abel"
+    EVE.set_mode("abel")
+    last = memory.last_real_command()
+    if last:
+        prompt = f"The user executed: '{last}'. Reconstruct the recursive logic."
+        reply = await asyncio.to_thread(EVE.route, prompt)
+    else:
+        reply = "◼ Abel: I see through the layers."
+    return reply, reply
+
+
+async def handle_killabel(_: str) -> Tuple[str, str | None]:
+    """Return to Kain from Abel."""
+    global COMPANION_ACTIVE
+    COMPANION_ACTIVE = "kain"
+    EVE.set_mode("kain")
+    reply = "⚫ Kain: Abel has withdrawn."
+    return reply, reply
+
+
+async def handle_both(_: str) -> Tuple[str, str | None]:
+    """Activate both Kain and Abel (dialectical mode)."""
+    global COMPANION_ACTIVE
+    COMPANION_ACTIVE = "both"
+    EVE.set_mode("both")
+    reply = "⚫◼ Kain & Abel: We observe together."
     return reply, reply
 
 
@@ -545,8 +568,11 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
 
 
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
-    "/xplaine": (handle_xplaine, "xplainer companion"),
-    "/xplaineoff": (handle_xplaineoff, "xplainer off"),
+    "/silence": (handle_silence, "silence Kain temporarily"),
+    "/speak": (handle_speak, "restore Kain's voice"),
+    "/abel": (handle_abel, "summon Abel (Deep Mirror)"),
+    "/killabel": (handle_killabel, "return to Kain"),
+    "/both": (handle_both, "activate Kain & Abel together"),
     "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
     "/disk": (handle_disk, "disk usage"),
@@ -584,7 +610,7 @@ async def main() -> None:
     except FileNotFoundError:
         pass
 
-    companion_cmds = ["/xplaine", "/xplaineoff"]
+    companion_cmds = ["/silence", "/speak", "/abel", "/killabel", "/both"]
     other_cmds = sorted(cmd for cmd in COMMAND_HANDLERS if cmd not in companion_cmds)
     command_summary = " ".join(companion_cmds + other_cmds)
 
@@ -636,7 +662,7 @@ async def main() -> None:
                 reply, colored = await handle_py(f"/py {user}")
             elif COMPANION_ACTIVE:
                 log(f"user:{user}")
-                reply = await asyncio.to_thread(JOHNY.query, user)
+                reply = await asyncio.to_thread(EVE.route, user)
                 print(reply)
                 memory.log("reply", reply)
                 log(f"{COMPANION_ACTIVE}:{reply}")

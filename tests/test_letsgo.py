@@ -155,31 +155,31 @@ def test_companion_commands(monkeypatch):
     handlers = {}
     letsgo.COMMAND_MAP.clear()
     letsgo.register_core(commands, handlers)
-    assert "/xplaine" in commands
-    assert "/xplaineoff" in commands
+    assert "/silence" in commands
+    assert "/speak" in commands
+    assert "/abel" in commands
+    assert "/killabel" in commands
+    assert "/both" in commands
     assert "/deepdive" not in commands
     assert "/deepdiveoff" not in commands
     monkeypatch.setattr(letsgo.memory, "last_real_command", lambda: "ls")
-    monkeypatch.setattr(letsgo.JOHNY, "query", lambda msg: "ok")
-    asyncio.run(handlers["/xplaine"]("/xplaine"))
-    assert letsgo.COMPANION_ACTIVE == "johny"
-    asyncio.run(handlers["/xplaineoff"]("/xplaineoff"))
+    monkeypatch.setattr(letsgo.EVE, "route", lambda msg, **kw: "ok")
+    # Default: Kain is always on
+    assert letsgo.COMPANION_ACTIVE == "kain"
+    asyncio.run(handlers["/silence"]("/silence"))
     assert letsgo.COMPANION_ACTIVE is None
 
 
-def test_xplaine_without_prior_command(monkeypatch):
+def test_silence_restores_with_speak(monkeypatch):
     commands = []
     handlers = {}
     letsgo.COMMAND_MAP.clear()
     letsgo.register_core(commands, handlers)
-    monkeypatch.setattr(letsgo.memory, "last_real_command", lambda: "")
-
-    def fake_query(_: str) -> str:  # pragma: no cover
-        raise AssertionError("query should not be called")
-
-    monkeypatch.setattr(letsgo.JOHNY, "query", fake_query)
-    reply, _ = asyncio.run(handlers["/xplaine"]("/xplaine"))
-    assert reply == "Hey there! I'm Johny. Need help?"
+    # Silence then speak
+    asyncio.run(handlers["/silence"]("/silence"))
+    assert letsgo.COMPANION_ACTIVE is None
+    asyncio.run(handlers["/speak"]("/speak"))
+    assert letsgo.COMPANION_ACTIVE == "kain"
 
 
 def test_help_lists_command_descriptions():

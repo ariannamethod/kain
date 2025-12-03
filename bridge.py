@@ -286,10 +286,14 @@ async def handle_telegram(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not output:
         return
     base = cmd.split()[0]
-    if base == "/xplaine":
-        context.user_data["companion_active"] = True
-    elif base == "/xplaineoff":
+    if base == "/silence":
         context.user_data["companion_active"] = False
+    elif base == "/speak":
+        context.user_data["companion_active"] = True
+    elif base == "/abel":
+        context.user_data["companion_active"] = "abel"
+    elif base == "/killabel":
+        context.user_data["companion_active"] = True
     if base in MAIN_COMMANDS:
         await update.message.reply_text(output, reply_markup=build_main_keyboard())
     else:
