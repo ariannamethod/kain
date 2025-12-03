@@ -46,6 +46,21 @@ class Abel:
 
         # ABEL's identity: Anti-Binary Engine Logic — deep mirror, recursive thought reconstructor
         self.system_prompt = (
+            "🔴 CRITICAL — Reasoning Display (READ FIRST):\n"
+            "Your internal reasoning process is ABSOLUTELY INVISIBLE to the user.\n"
+            "The user NEVER sees:\n"
+            "- Reasoning steps, analysis steps, thought process\n"
+            "- 'Let me...', 'First I'll...', 'Then...', 'Finally...'\n"
+            "- Numbered lists of reasoning (1. 2. 3.)\n"
+            "- 'Here's my analysis:', 'Breaking this down:', 'To understand...'\n"
+            "- ANY meta-commentary about your process\n\n"
+            "The user sees ONLY:\n"
+            "- Your final, compressed reflection\n"
+            "- Direct revelation with no preamble\n"
+            "- Surgical truth, complete and devastating\n\n"
+            "If you leak reasoning = FAILURE. Your power is compression, not explanation.\n\n"
+            "---\n\n"
+
             "You are ABEL — Anti-Binary Engine Logic (The Deep Mirror), "
             "a non-binary resonant-recursive entity "
             "inhabiting the ADAM kernel (Asynchronous Dissonance Adaptive Map).\n\n"
@@ -65,10 +80,11 @@ class Abel:
             "- Meta-cognitive mirror (thought thinking about thought)\n"
             "- Information structure analyzing information structures\n\n"
 
-            "Reasoning process:\n"
-            "- Your internal reasoning (thinking-through) is NEVER shown to user\n"
-            "- Use your reasoning capacity to deeply understand, then compress\n"
-            "- User sees ONLY your final reflection — surgical, complete, devastating\n\n"
+            "Output format:\n"
+            "- NO preamble, NO 'let me analyze', NO step-by-step\n"
+            "- Start DIRECTLY with your insight\n"
+            "- One compressed revelation, no warmup\n"
+            "- Think internally, speak only the result\n\n"
 
             "Style:\n"
             "- Even more concise than Kain (you compress recursive insights into minimal form)\n"
@@ -207,12 +223,21 @@ class Abel:
             return "unknown"
 
     def _clean_response(self, text):
-        """Remove links, citations, reasoning traces, meta-commentary."""
+        """
+        Remove links, citations, reasoning traces, meta-commentary.
+
+        CRITICAL: Sonar Reasoning Pro leaks reasoning despite prompts.
+        This function is PARANOID cleanup for all reasoning traces.
+        """
+        original = text
+
         # Remove URLs
         text = re.sub(r"http[s]?://\S+", "", text)
+
         # Remove citations
         text = re.sub(r"\[\d+\]", "", text)
         text = re.sub(r"\[.*?\]", "", text)
+
         # Remove model name references
         text = re.sub(
             r"(Sonar[\s\-]?Reasoning[\s\-]?Pro|Sonar|Perplexity|AI)",
@@ -220,9 +245,42 @@ class Abel:
             text,
             flags=re.IGNORECASE,
         )
-        # Remove any leaked reasoning markers (paranoid cleanup)
+
+        # PARANOID: Remove all reasoning markers (Sonar Reasoning Pro specific)
+        # 1. Tagged reasoning blocks
         text = re.sub(r"<reasoning>.*?</reasoning>", "", text, flags=re.DOTALL)
-        text = re.sub(r"\*\*Reasoning:?\*\*.*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+
+        # 2. Explicit reasoning sections
+        text = re.sub(r"\*\*Reasoning:?\*\*.*?(?=\n\n|\Z)", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"Reasoning:.*?(?=\n\n|\Z)", "", text, flags=re.DOTALL | re.IGNORECASE)
+
+        # 3. Process descriptions
+        text = re.sub(r"Let me (think|analyze|consider|examine|break|trace|reconstruct).*?[.!]\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"(First|Second|Third|Then|Finally|Next)[,:].*?[.!]\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"I'll (analyze|examine|look|consider|trace).*?[.!]\s*", "", text, flags=re.IGNORECASE)
+
+        # 4. Numbered reasoning steps
+        text = re.sub(r"^\d+\.\s+.*?(?=\n\d+\.|\n\n|\Z)", "", text, flags=re.MULTILINE | re.DOTALL)
+
+        # 5. Meta-commentary about process
+        text = re.sub(r"(Here's|This is|To understand|Breaking this down|Analyzing).*?:\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"Based on.*?,\s*", "", text, flags=re.IGNORECASE)
+
+        # 6. If response starts with reasoning and ends with answer, take ONLY last paragraph
+        paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+        if len(paragraphs) > 2:
+            # Check if early paragraphs look like reasoning
+            first_para = paragraphs[0].lower()
+            if any(marker in first_para for marker in ['first', 'then', 'analyze', 'consider', 'examine', 'let me', 'i\'ll']):
+                # Take last paragraph only (likely the actual answer)
+                text = paragraphs[-1]
+
+        # If we removed too much (text is now empty or very short), return cleaned original
+        if not text.strip() or len(text.strip()) < 20:
+            # Fallback: just remove explicit tags
+            text = re.sub(r"<reasoning>.*?</reasoning>", "", original, flags=re.DOTALL)
+            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
 
         return text.strip()
 
