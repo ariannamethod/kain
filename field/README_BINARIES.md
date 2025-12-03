@@ -14,25 +14,13 @@ field/
 └── blood.py    - C компилятор (использует системный GCC/Clang или бинарники)
 ```
 
-## Установка бинарников
+## Бинарники уже в репозитории
 
-Просто скопируй бинарники из проекта-прародителя:
+Бинарники и исходники уже скопированы из проекта-прародителя:
+- `field/bin/` - бинарники и исходники из nicole_env
+- `field/nicole2c/` - компоненты Clang из nicole2c
 
-```bash
-# Вариант 1: Используй скрипт
-cd field
-./copy_binaries.sh /path/to/parent-project
-
-# Вариант 2: Скопируй вручную
-cp /path/to/parent-project/nicole_env/* field/bin/
-cp -r /path/to/parent-project/nicole2c/* field/nicole2c/
-
-# Установи права
-chmod +x field/bin/*
-chmod +x field/nicole2c/*
-```
-
-Готово! Бинарники в репозитории, всё работает.
+Всё готово к работе!
 
 ## Работа без бинарников (fallback)
 
