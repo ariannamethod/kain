@@ -14,7 +14,13 @@ import sys
 from typing import Dict, List, Any, Optional, Tuple, Set
 from dataclasses import dataclass
 from collections import defaultdict, deque
-import h2o
+# h2o compiler - optional, for dynamic code generation
+try:
+    import h2o
+    H2O_AVAILABLE = True
+except ImportError:
+    h2o = None
+    H2O_AVAILABLE = False
 
 @dataclass
 class MemoryEntry:

@@ -12,6 +12,38 @@ import time
 import random
 from typing import List, Dict, Any, Optional
 
+# Config import with fallback defaults
+try:
+    from .config import (
+        TRANSFORMER_PARAMS,
+        SEMANTIC_WEIGHT, ENTROPY_WEIGHT, PERPLEXITY_WEIGHT, TARGET_ENTROPY,
+        DEATH_THRESHOLD, REPRODUCTION_THRESHOLD,
+        MUTATION_RATE
+    )
+except ImportError:
+    try:
+        from config import (
+            TRANSFORMER_PARAMS,
+            SEMANTIC_WEIGHT, ENTROPY_WEIGHT, PERPLEXITY_WEIGHT, TARGET_ENTROPY,
+            DEATH_THRESHOLD, REPRODUCTION_THRESHOLD,
+            MUTATION_RATE
+        )
+    except ImportError:
+        # Fallback defaults if config unavailable
+        TRANSFORMER_PARAMS = {
+            "hidden_size": 128,
+            "num_layers": 2,
+            "num_heads": 4,
+            "max_seq_len": 64,
+        }
+        SEMANTIC_WEIGHT = 0.5
+        ENTROPY_WEIGHT = 0.25
+        PERPLEXITY_WEIGHT = 0.25
+        TARGET_ENTROPY = 0.5
+        DEATH_THRESHOLD = 0.3
+        REPRODUCTION_THRESHOLD = 0.65
+        MUTATION_RATE = 0.1
+
 
 class TransformerCell:
     """A single micro-transformer = one cell in Field."""
@@ -45,8 +77,6 @@ class TransformerCell:
     
     def _default_architecture(self) -> Dict[str, Any]:
         """Default transformer architecture."""
-        from config import TRANSFORMER_PARAMS
-        
         return {
             "hidden_size": TRANSFORMER_PARAMS["hidden_size"],
             "num_layers": TRANSFORMER_PARAMS["num_layers"],
@@ -106,8 +136,6 @@ class MicroTransformer:
         Returns:
             Fitness score (0.0 to 1.0)
         """
-        from config import SEMANTIC_WEIGHT, ENTROPY_WEIGHT, PERPLEXITY_WEIGHT, TARGET_ENTROPY
-        
         # 1. Semantic resonance (calculated externally via embeddings)
         semantic_resonance = self.resonance_score
         
@@ -169,8 +197,6 @@ class MicroTransformer:
         self.fitness_history.append(fitness)
 
         # Game of Life rules
-        from config import DEATH_THRESHOLD, REPRODUCTION_THRESHOLD
-
         if fitness < DEATH_THRESHOLD:
             # Die
             self.die()
@@ -197,8 +223,6 @@ class MicroTransformer:
         Returns:
             New TransformerCell (child)
         """
-        from config import MUTATION_RATE
-        
         # Mutate architecture
         mutated_arch = self._mutate_architecture(self.architecture, MUTATION_RATE)
         
