@@ -30,19 +30,25 @@ class Eve:
         self.kain = get_kain()
         self.abel = get_abel()
         self.current_mode = "kain"  # Default to KAIN
+        self.sudo_mode = False  # System monitoring disabled by default
 
-    def route(self, user_message, force_mode=None):
+    def route(self, user_message, force_mode=None, sudo=None):
         """
         Route user message to appropriate mirror(s).
 
         Args:
             user_message: User's input
             force_mode: Optional - force specific mode ('kain', 'abel', 'both')
+            sudo: Optional - enable/disable system monitoring (default: current sudo_mode)
 
         Returns:
             Response from appropriate mirror(s)
         """
-        memory.log("eve_route", f"mode={force_mode or 'auto'} msg={user_message[:50]}")
+        # Update sudo mode if explicitly set
+        if sudo is not None:
+            self.sudo_mode = sudo
+
+        memory.log("eve_route", f"mode={force_mode or 'auto'} sudo={self.sudo_mode} msg={user_message[:50]}")
 
         if force_mode:
             self.current_mode = force_mode
@@ -56,13 +62,13 @@ class Eve:
 
     def _ask_kain(self, user_message):
         """Ask KAIN (pattern mirror)."""
-        return self.kain.query(user_message, include_system_state=True)
+        return self.kain.query(user_message, include_system_state=self.sudo_mode)
 
     def _ask_abel(self, user_message, kain_prior=None):
         """Ask ABEL (deep mirror)."""
         return self.abel.query(
             user_message,
-            include_system_state=True,
+            include_system_state=self.sudo_mode,
             kain_observation=kain_prior,
         )
 

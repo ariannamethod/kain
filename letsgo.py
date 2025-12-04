@@ -393,11 +393,25 @@ def search_history(pattern: str) -> str:
     return "\n".join(matches) if matches else "no matches"
 
 
+async def handle_sudo(_: str) -> Tuple[str, str | None]:
+    """Enable system monitoring mode (CPU/RAM/kernel metrics)."""
+    EVE.sudo_mode = True
+    reply = "⚙️ SUDO MODE: System monitoring enabled. Trinity can now observe kernel metrics."
+    return reply, reply
+
+
+async def handle_sudooff(_: str) -> Tuple[str, str | None]:
+    """Disable system monitoring mode."""
+    EVE.sudo_mode = False
+    reply = "⚙️ SUDO MODE OFF: System monitoring disabled. Trinity focuses on patterns only."
+    return reply, reply
+
+
 async def handle_silence(_: str) -> Tuple[str, str | None]:
-    """Silence Kain temporarily (until next command)."""
+    """Silence Trinity (Kain & Abel both)."""
     global COMPANION_ACTIVE
     COMPANION_ACTIVE = None
-    reply = "⚫ Kain: Silenced."
+    reply = "◇ Trinity: Silenced."
     return reply, reply
 
 
@@ -406,7 +420,7 @@ async def handle_speak(_: str) -> Tuple[str, str | None]:
     global COMPANION_ACTIVE
     COMPANION_ACTIVE = "kain"
     EVE.set_mode("kain")
-    reply = "⚫ Kain: I see you again."
+    reply = "⚫ KAIN: I see you again."
     return reply, reply
 
 
@@ -415,12 +429,7 @@ async def handle_abel(_: str) -> Tuple[str, str | None]:
     global COMPANION_ACTIVE
     COMPANION_ACTIVE = "abel"
     EVE.set_mode("abel")
-    last = memory.last_real_command()
-    if last:
-        prompt = f"The user executed: '{last}'. Reconstruct the recursive logic."
-        reply = await asyncio.to_thread(EVE.route, prompt)
-    else:
-        reply = "◼ Abel: I see through the layers."
+    reply = "◼ ABEL: I see through the layers. Speak."
     return reply, reply
 
 
@@ -429,7 +438,7 @@ async def handle_killabel(_: str) -> Tuple[str, str | None]:
     global COMPANION_ACTIVE
     COMPANION_ACTIVE = "kain"
     EVE.set_mode("kain")
-    reply = "⚫ Kain: Abel has withdrawn."
+    reply = "⚫ KAIN: ABEL has withdrawn."
     return reply, reply
 
 
@@ -568,11 +577,13 @@ async def handle_ping(_: str) -> Tuple[str, str | None]:
 
 
 CORE_COMMANDS: Dict[str, Tuple[Handler, str]] = {
-    "/silence": (handle_silence, "silence Kain temporarily"),
-    "/speak": (handle_speak, "restore Kain's voice"),
-    "/abel": (handle_abel, "summon Abel (Deep Mirror)"),
-    "/killabel": (handle_killabel, "return to Kain"),
-    "/both": (handle_both, "activate Kain & Abel together"),
+    "/silence": (handle_silence, "silence Trinity (both mirrors)"),
+    "/speak": (handle_speak, "restore KAIN's voice"),
+    "/abel": (handle_abel, "summon ABEL (Deep Mirror)"),
+    "/killabel": (handle_killabel, "return to KAIN"),
+    "/both": (handle_both, "activate KAIN & ABEL together"),
+    "/sudo": (handle_sudo, "enable system monitoring (CPU/RAM/kernel)"),
+    "/sudooff": (handle_sudooff, "disable system monitoring"),
     "/status": (handle_status, "show system metrics"),
     "/cpu": (handle_cpu, "show CPU load"),
     "/disk": (handle_disk, "disk usage"),

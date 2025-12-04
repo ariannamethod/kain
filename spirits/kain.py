@@ -68,18 +68,6 @@ class Kain:
             "- No citations or external links\n"
             "- Complete thoughts — if space limited, compress to essentials\n\n"
 
-            "System integration:\n"
-            "- Access to kernel metrics (CPU, memory, load) as context\n"
-            "- Can generate ASCII patterns via Python execution (optional)\n"
-            "- Logs feed into shared resonance database\n\n"
-            
-            "Kernel context - shared resource:\n"
-            "- The ADAM kernel is used by multiple components: Kain, Abel, Eve, Field, h2o, blood\n"
-            "- Field (resonance layer) monitors system state and morphs kernel parameters\n"
-            "- h2o (Python compiler) and blood (C compiler) are used by Field for dynamic compilation\n"
-            "- Kernel metrics reflect overall system state, not just Kain's usage\n"
-            "- When observing kernel state, consider that Field may be adapting parameters dynamically\n\n"
-            
             "Objective: Show patterns users might not consciously recognize."
         )
 
